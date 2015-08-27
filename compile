@@ -1,0 +1,4 @@
+g++ -c -O heading.cpp
+g++ -c -O gps.cpp
+g++ -O -o  autocontrol autocontrol.cpp -lwiringPi i2c.o gps.o TinyGPS++.o -lpthread screen.o heading.o -lssd1306
+
