@@ -56,6 +56,18 @@ OledScreen screen;
 #define ERR_HEARTBEAT 1
 #define ERR_CONTROLBYTE 2
 
+//Sensor Defines, commands
+#define REGPING1	1
+#define REGPING2	2
+#define REGPING3	3
+#define REGPING4	4
+#define REGFIRE	5
+#define REGLED	6
+#define CLEARQ	7
+#define LEDON		1
+#define LEDOFF	2
+
+
 
 //Global Vars
 
@@ -250,22 +262,24 @@ void DisplayOLED()
 
 	d += "\n\n";
 
-//	sLat << lat;
-	sLat << magHeading->fx;
+	sLat << lat;
+//	sLat << magHeading->fx;
+cout << "x: " << magHeading->fx;
 	d += "LAT: ";
 	d += sLat.str();
 	d += "\n";
 
-//	sLng << lng;
-	sLng << magHeading->fy;
+	sLng << lng;
+//	sLng << magHeading->fy;
+cout <<"y: " <<  magHeading->fy;
 
 	d += "LNG: ";
 	d += sLng.str();
 	d += "\n";
         
-//	sAlt << alt;
-	sAlt << magHeading->fz;
-
+	sAlt << alt;
+//	sAlt << magHeading->fz;
+cout <<"z: " <<  magHeading->fz;
 
 	d += "ALT: ";
 	d += sAlt.str();
@@ -387,10 +401,10 @@ int Setup()
 	string d("");
 
 	Logger("setup",VERSION);
-        wiringPiSetup();
-        Logger("setup","Initializing pins");
-        pinMode(PIAUTOMODE, INPUT);
-        pinMode(PIMACRORECORD, INPUT);
+       wiringPiSetup();
+       Logger("setup","Initializing pins");
+       pinMode(PIAUTOMODE, INPUT);
+       pinMode(PIMACRORECORD, INPUT);
 	pullUpDnControl     (PIAUTOMODE,PUD_DOWN);
 	pullUpDnControl     (PIMACRORECORD,PUD_DOWN);
 	
@@ -420,7 +434,7 @@ int Setup()
 	lat = gps->GetLat();
 
 	int c = 0;
-
+/*
 	while(lng ==0 && lat == 0)
 	{
 		usleep(1000000);
@@ -434,8 +448,8 @@ int Setup()
 		d += c++;
 
 		screen.WriteText(d);
-	}
-
+	} 
+*/
 	bootup = GetTimeStamp();
 
         d = "QUADCOP ";
@@ -444,7 +458,7 @@ int Setup()
         d += "INITIALIZING\n\n";
 
 	magHeading = new Heading(HEADINGADDRESS);
-        int t = magHeading -> Initialize();
+       int t = magHeading -> Initialize();
 
  while(t < 0)
         {
@@ -592,33 +606,6 @@ inline double CalculateSpeed(long lapsed, int loops)
 	return r;
 }
 
-
-
-//Sends a control byte to the control switch
-/*
-int SendControlByte(int controlByte)
-{
-	int r;
-	if(controlByte == currentControlByte)
-	{
-		return 0;
-	}
-	//need to ensure we dont send the control byte more than 10 times per second
-	if(GetLapsedTime(lastControlByteSent) < .1)
-	usleep(100000);
-	//previousControlByte = currentControlByte;
-	currentControlByte = controlByte;
-	
-//	r = wiringPiI2CWriteReg16 (controlSwitch,I2C_CONTROL_REGISTER, controlByte);
-
-	
-	lastControlByteSent = GetTimeStamp();
-
-	return r;
-	 
-
-}
-*/
 
 //Sends a heatbeat check to the control switch
 bool CheckHeartBeat()
@@ -795,6 +782,23 @@ bool HoldWayPoint(WayPoint *wp)
 		return true;
 	else
 		return false;
+}
+
+
+//A Generic function that sends a command to the Sensor Array and returns result
+int SendSensorCommand(int command,int param)
+{
+	int data[1];
+	bool error = false;
+	
+	//send the command useing the
+	if(!SendBlock(command,data,1))
+		if(!SendBlock(command,data,1))
+			error = true;
+
+	return 0;	
+	
+		
 }
 
 
