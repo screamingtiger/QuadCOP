@@ -8,7 +8,7 @@
 #define READPWMMAXDELAYLOW 30
 #define READPWMMAXDELAYHIGH 20
 #define MINPWM 1200
-#define MAXPWM 2000
+#define MAXPWM 2300
 /*
 PWM output to Flight controller (PWM write)
 
@@ -18,17 +18,24 @@ PWM output to Flight controller (PWM write)
 9 - Rx Channel 4 (rotate left and right)
 */
 
-//PWM outut from ChipKit to Flight Controller
 #define FLIGHTCONTROL_X 0
 #define FLIGHTCONTROL_Y	1
 #define FLIGHTCONTROL_Z	A0
 #define FLIGHTCONTROL_R	3
 
-//PWM output to Head Servo
-#define HEADSERVO  A1
+
+/* PWM input from Rx
+A0 - Rx Channel 1
+A1 - Rx Channel 2
+A2 - Rx Channel 3
+A3 - Rx Channel 4
+A4 - Rx Channel 6* used as flight mode
+A5 - Rx Channel 5 used a macro mode.
+*/
 
 
-//PWM input from Rx to Chipkit.
+
+
 #define RXCHANNEL1 8
 #define RXCHANNEL2 9
 #define RXCHANNEL3 10
@@ -38,9 +45,7 @@ PWM output to Flight controller (PWM write)
 
 //Output pins to RPi for auto and macro mode switching
 #define RPIAUTOMODE   2
-
-//Move MACROMODE to RPI Read
-#define RPIMACROMODE  0
+#define RPIMACROMODE  A1
 	
 
 /***********************************************************************
@@ -153,93 +158,16 @@ int blockSkipped = 0 ;
 
 
 
-//Head control variables
-long headCurrentPWM = STOP;
-int headSpeedFactor = 100;
-int headDirection = 1;
-long headLastUpdate = millis();
-long headStopPointPWM = MAXPWM;
-int headStopPoint = 0;
-int headDelay = 5000;
-int headDivFactor = 1;
 
-//A function that randomly moves the head around
-
-
-void MoveHead()
-{
-  
-    
-	//SoftPWMServoServoWrite
-
-
-        if(millis() - headLastUpdate > headDelay)      
-	{
-  
-  		if(headDirection == 0)
-			headCurrentPWM -= headSpeedFactor;
-		else
-			headCurrentPWM += headSpeedFactor;
-
-
-		if(random(1,10000) < 30)
-                {
-                  headDirection++;
-                  headDirection %= 2;
-                  headDelay=random(1,3) * 1000;
-                  headSpeedFactor = random(1,6);
-                  headSpeedFactor =10;
-                }
-                else  
-                  headDelay = 10;
-                  
-                if(headCurrentPWM >= MAXPWM || headCurrentPWM <= MINPWM)
-		{
-                    
-			if(headDirection == 0)
-                        {
-                            headDirection = 1;
-                            headCurrentPWM = MINPWM + 10;
-                        }
-                        else
-                        {
-                            headDirection = 0;
-                            headCurrentPWM = MAXPWM - 10;
-                        }
-                        
-			headSpeedFactor = random(1,3) * 10;
-;
-                        
-                        //headCurrentPWM = headStopPointPWM;
-                        
-                        
-
-			                        //Wait up to 3 seconds before moving again
-                        headDelay = random(1,3);
-                        headDelay *= 1000;
-
-  
-		}
-                else
-                {
-                    
-
-                        SoftPWMServoServoWrite(HEADSERVO,headCurrentPWM);
-    		        headLastUpdate = millis();
-                }
-	
-	}
-	
-}
 
 
 bool ControlByteCheck(unsigned char cb,unsigned char cbc)
 {
 	bool valid = true;
-	////////Serial1.print("CB: ");
-	////////Serial1.println(cb);
-	////////Serial1.print("CBC: ");
-	////////Serial1.println(cbc);
+	//////Serial1.print("CB: ");
+	//////Serial1.println(cb);
+	//////Serial1.print("CBC: ");
+	//////Serial1.println(cbc);
 
 	if(cb % 17 != cbc)
 		valid =  false;
@@ -338,25 +266,25 @@ inline int ParseControlByte()
 
 void PrintDirections()
 {
-	////Serial1.println("------------------------------");
+	//Serial1.println("------------------------------");
 
 	//if(forward)
-		////Serial1.println("FORWARD");
+		//Serial1.println("FORWARD");
 	//if(reverse)
-		//////Serial1.println("REVERSE");
+		////Serial1.println("REVERSE");
 	//if(left)
-		//////Serial1.println("LEFT");
+		////Serial1.println("LEFT");
 	//if(right)
-		//////Serial1.println("RIGHT");
+		////Serial1.println("RIGHT");
 	//if(climb)
-		//////Serial1.println("CLIMB");
+		////Serial1.println("CLIMB");
 	//if(dive)
-		//////Serial1.println("DIVE");
+		////Serial1.println("DIVE");
 	//if(rLeft)
-		//////Serial1.println("RLEFT");
+		////Serial1.println("RLEFT");
 	//if(rRight)
-		//////Serial1.println("RRIGHT");
-        //////Serial1.println("------------------------------");
+		////Serial1.println("RRIGHT");
+        ////Serial1.println("------------------------------");
 
 
 
@@ -478,19 +406,73 @@ void ProcessBlock()
   
 }
 
+/*
+void I2CReceiveEvent(int numBytes)
+{
+	
+        controlByteChanged = true;
+	ledOn = !ledOn;
+	//Every 2 bytes are our data pairs, writes come in groups of 3
+	
+	unsigned char cb, cbc, reg;
+	temp = numBytes;
+	for(int i=0;i< numBytes; i=i+3)
+	{
+		reg = (unsigned char)Wire.receive(); //pop off the register
+		cbc = (unsigned char)Wire.receive();
+		cb = (unsigned char)Wire.receive();
+	}
+	if(numBytes != 3 )
+	{
+		cb = 156;
+		cbc = 156;
+    //            temp = 156;
+		return;
+	}
+//else 
+  //temp = numBytes;
 
+	if(reg == 22)
+	{
+		//heartbeat check
+                heartBeatChecked = true;
+
+	}
+	else if(reg == 60)
+	{
+
+		if(ControlByteCheck(cb,cbc))
+		{
+			lastControlByte = controlByte;
+			controlByte = cb;
+			controlByteChanged = true;
+                        
+                        
+
+		}
+		else
+			controlByteBad = true;
+	}
+	else if (reg == 90)
+        {
+            //Speed change
+          
+          
+        }
+        else
+		controlByteBad = true;
+
+
+}
+*/
 
 
 void setup()
 {
 	r = new char[20];
-	
-	//Random numbers for Head movement.
-	randomSeed(analogRead(A1));
-
 	//if(serialOut)
-		////Serial1.begin(9600);
-	////Serial1.println("RESET");
+		Serial1.begin(9600);
+	//Serial1.println("RESET");
 	//Setup RPi input pins
 
 	//Setup PWM pins going to flight controller
@@ -512,17 +494,32 @@ void setup()
 
 	Wire.begin(40);
         Wire.onReceive(I2CReceiveEventBlock);
-
-	//Center all the servos
-	SoftPWMServoServoWrite(HEADSERVO,STOP);
-        SoftPWMServoServoWrite(FLIGHTCONTROL_X, STOP);
-	SoftPWMServoServoWrite(FLIGHTCONTROL_Y, STOP);
-        SoftPWMServoServoWrite(FLIGHTCONTROL_Z, MINPWM);
-        SoftPWMServoServoWrite(FLIGHTCONTROL_R, STOP);
 	
 }
 
 
+/*
+inline unsigned long ReadPWM(int pin)
+{
+	unsigned long r;	
+	r =  pulseIn(pin,HIGH);
+	r += pulseIn(pin,HIGH);
+	r = r /2;
+	
+
+
+	if(serialOut)
+	{
+		////Serial1.print("Reading pin ");
+		////Serial1.print(pin);
+		////Serial1.print(" has PWM value: ");
+		////Serial1.println(r);
+	}
+		
+
+	return r;
+
+}*/
 
 inline int ReadPWM2(int pin)
 {
@@ -543,20 +540,20 @@ inline int ReadPWM2(int pin)
 	//d /= 2;
 
 
-	////////Serial1.print("pin: ");
-	////////Serial1.println(pin);
+	//////Serial1.print("pin: ");
+	//////Serial1.println(pin);
 
 	//if(d < MINPWM || d > MAXPWM)
 	//f	d = 0;
 
 	if(millis() - functionStart <= READPWMMAXDELAYLOW)
 	{
-		////////Serial1.println(d);
+		//////Serial1.println(d);
 		return d;
 	}
 	else
 	{
-		////////Serial1.println(0);
+		//////Serial1.println(0);
 		return 0;
 	}
 }
@@ -615,7 +612,7 @@ char controlChar = 0;
 
 void loop()
 {
-      ////Serial1.println("HERE");
+      //Serial1.println("HERE");
 	unsigned int a = 0;
         int channel6LastChecked = 0;
         
@@ -624,32 +621,29 @@ void loop()
 	
 	while(1)
 	{
-          ///////Serial1.println("Loop");
+          /////Serial1.println("Loop");
           //delay(100);
           autoMode = false;
-      	//Move the Head.
-	MoveHead(); 
-
-
+       
 	if(!autoMode || forceManual)
 	{
 
 		if(!manualModeInProgress)
 		{
-			//////Serial1.println("Entering Manual Mode");
+			////Serial1.println("Entering Manual Mode");
 			manualModeInProgress = true;
 			autoModeInProgress = false;
 		}
 /*
                 if(heartBeatChecked)
                 {
-                    //////Serial1.println("Heartbeat Checked");
+                    ////Serial1.println("Heartbeat Checked");
                     heartBeatChecked = false;
                 }
                 if(controlByteChanged)
                 {
-                  //////Serial1.print("Bytes REceived: ");
-                  //////Serial1.println(CToS(temp));
+                  ////Serial1.print("Bytes REceived: ");
+                  ////Serial1.println(CToS(temp));
                   controlByteChanged = false;
                 }
                 */
@@ -657,7 +651,7 @@ void loop()
 		if(channel1Errors < 50)
 			channel1 = ReadPWM2(RXCHANNEL1);
 		if(channel1 == 0)
-			;//channel1Errorsx++;
+			channel1Errors++;
 		else
 			channel1Errors = 0;
 			
@@ -665,10 +659,10 @@ void loop()
 	
 		if(channel1Errors < 50 && channel1 != 0 && abs(prevChannel1 - channel1) > SERVODEADBAND)
 		{
-			//Serial1.print(prevChannel1);	
-			//Serial1.print("---");
-			//Serial1.println(channel1);
-			//Serial1.println(abs(prevChannel1 - channel1));
+			Serial1.print(prevChannel1);	
+			Serial1.print("---");
+			Serial1.println(channel1);
+			Serial1.println(abs(prevChannel1 - channel1));
 
 
 			prevChannel1 = channel1;
@@ -682,7 +676,7 @@ void loop()
                   {
                     if(!servo1Removed)
                     {
-                        //Serial1.println("SERVO 1 REMOVED"); 
+                        Serial1.println("SERVO 1 REMOVED"); 
                         servo1Removed = true;
                     } 
                     else
@@ -695,7 +689,7 @@ void loop()
 		if(channel2Errors < 50)	
 			channel2 = ReadPWM2(RXCHANNEL2);
 		if(channel2 == 0) 
-			;//channel2Errors++;
+			channel2Errors++;
 		else
 			channel2Errors = 0;
 	
@@ -708,7 +702,7 @@ void loop()
 		if(channel3Errors < 50)	
 			channel3 = ReadPWM2(RXCHANNEL3);
 		if(channel3 == 0)
-			;//channel3Errors++;
+			channel3Errors++;
 		else
 			channel3Errors = 0;
 
@@ -721,7 +715,7 @@ void loop()
 		if(channel4Errors < 50)	
 			channel4 = ReadPWM2(RXCHANNEL4);	
 		if(channel4 == 0)
-			;//channel4Errors++;
+			channel4Errors++;
 		else
 			channel4Errors = 0;
 
@@ -754,7 +748,7 @@ void loop()
 				if(!macroModeInProgress)
 				{
 					digitalWrite(RPIMACROMODE,HIGH);
-					//////Serial1.println("Entering Macro Record Mode.");
+					////Serial1.println("Entering Macro Record Mode.");
 					macroModeInProgress = true;
 				}
 			}
@@ -764,7 +758,7 @@ void loop()
 				{
 					macroModeInProgress = false;
 					macroMode = false;
-					//////Serial1.println("Leaving Macro Record Mode.");
+					////Serial1.println("Leaving Macro Record Mode.");
 					digitalWrite(RPIMACROMODE,LOW);	
 				}
 			}
@@ -775,7 +769,7 @@ void loop()
 		//Main automode logic here
 		if(!autoModeInProgress)
 		{
-			//////Serial1.println("Entering AUTOMODE");
+			////Serial1.println("Entering AUTOMODE");
 			autoModeInProgress = true;
 			manualModeInProgress =false;
 			macroMode = false;
@@ -786,21 +780,24 @@ void loop()
 
                 //Do Testing
                 
-                            
+                            SoftPWMServoServoWrite(FLIGHTCONTROL_X, MOVELEFT);
+                            SoftPWMServoServoWrite(FLIGHTCONTROL_Y, MOVEFORWARD);
+                            SoftPWMServoServoWrite(FLIGHTCONTROL_Z, MOVECLIMB) ;
+                            SoftPWMServoServoWrite(FLIGHTCONTROL_R, ROTATELEFT);
 
                 if(blockBlock &&   blockCompleted)
                 {
-                  ////////Serial1.println("BLOCK");
+                  //////Serial1.println("BLOCK");
                   ProcessBlock();
                   //if(controlByteBad)
-                    //////Serial1.println("BAD");
+                    ////Serial1.println("BAD");
                   //else
-                    //////Serial1.println("GOOD");
-                  ////////Serial1.println(CToS(block[0]));
-                  ////////Serial1.println(CToS(block[1]));
-                  ////////Serial1.println(CToS(block[2]));
-                  ////////Serial1.print("Skipped: ");
-                  //////Serial1.println(blockSkipped);
+                    ////Serial1.println("GOOD");
+                  //////Serial1.println(CToS(block[0]));
+                  //////Serial1.println(CToS(block[1]));
+                  //////Serial1.println(CToS(block[2]));
+                  //////Serial1.print("Skipped: ");
+                  ////Serial1.println(blockSkipped);
                        
                 }
 		
@@ -820,13 +817,13 @@ void loop()
 
 		}
 
-                if(millis() - channel6LastChecked > 2000)
+                if(millis() - channel6LastChecked > 5000)
                 {
         		channel6 = ReadPWM2(RXCHANNEL6);
 
 	        	if(channel6 != 0 &&  channel6 < STOP)
 		        {
-		            ////////Serial1.println(channel6);	
+		            //////Serial1.println(channel6);	
                 	    autoMode = false;
 			    digitalWrite(RPIAUTOMODE,LOW);
 		        }
